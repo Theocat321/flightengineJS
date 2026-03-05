@@ -1,159 +1,103 @@
-import { Vec3 } from './Vec3';
+import { Vec3 } from './Vec3.js';
+import { Mat3 } from './Mat3.js';
 
-/** Unit quaternion representing a rotation: (w, x, y, z) */
 export class Quat {
   constructor(
-    public w: number = 1,
     public x: number = 0,
     public y: number = 0,
-    public z: number = 0
+    public z: number = 0,
+    public w: number = 1
   ) {}
 
-  clone(): Quat {
-    return new Quat(this.w, this.x, this.y, this.z);
-  }
-
-  set(w: number, x: number, y: number, z: number): this {
-    this.w = w; this.x = x; this.y = y; this.z = z;
-    return this;
-  }
-
-  copyFrom(q: Quat): this {
-    this.w = q.w; this.x = q.x; this.y = q.y; this.z = q.z;
-    return this;
-  }
-
-  /** Hamilton product: this * q */
-  mul(q: Quat): Quat {
+  multiply(q: Quat): Quat {
+    const ax = this.x, ay = this.y, az = this.z, aw = this.w;
+    const bx = q.x, by = q.y, bz = q.z, bw = q.w;
     return new Quat(
-      this.w * q.w - this.x * q.x - this.y * q.y - this.z * q.z,
-      this.w * q.x + this.x * q.w + this.y * q.z - this.z * q.y,
-      this.w * q.y - this.x * q.z + this.y * q.w + this.z * q.x,
-      this.w * q.z + this.x * q.y - this.y * q.x + this.z * q.w
+      aw * bx + ax * bw + ay * bz - az * by,
+      aw * by - ax * bz + ay * bw + az * bx,
+      aw * bz + ax * by - ay * bx + az * bw,
+      aw * bw - ax * bx - ay * by - az * bz
+    );
+  }
+
+  rotateVector(v: Vec3): Vec3 {
+    const qx = this.x, qy = this.y, qz = this.z, qw = this.w;
+    const ix = qw * v.x + qy * v.z - qz * v.y;
+    const iy = qw * v.y + qz * v.x - qx * v.z;
+    const iz = qw * v.z + qx * v.y - qy * v.x;
+    const iw = -qx * v.x - qy * v.y - qz * v.z;
+    return new Vec3(
+      ix * qw + iw * -qx + iy * -qz - iz * -qy,
+      iy * qw + iw * -qy + iz * -qx - ix * -qz,
+      iz * qw + iw * -qz + ix * -qy - iy * -qx
     );
   }
 
   conjugate(): Quat {
-    return new Quat(this.w, -this.x, -this.y, -this.z);
-  }
-
-  normSq(): number {
-    return this.w * this.w + this.x * this.x + this.y * this.y + this.z * this.z;
-  }
-
-  norm(): number {
-    return Math.sqrt(this.normSq());
+    return new Quat(-this.x, -this.y, -this.z, this.w);
   }
 
   normalize(): Quat {
-    const n = this.norm();
-    if (n < 1e-10) return Quat.identity();
-    return new Quat(this.w / n, this.x / n, this.y / n, this.z / n);
-  }
-
-  normalizeInPlace(): this {
-    const n = this.norm();
-    if (n < 1e-10) { this.w = 1; this.x = this.y = this.z = 0; return this; }
-    this.w /= n; this.x /= n; this.y /= n; this.z /= n;
-    return this;
-  }
-
-  /** Rotate a vector by this quaternion */
-  rotateVec(v: Vec3): Vec3 {
-    // Optimized sandwich product: q * [0,v] * q*
-    const { w, x, y, z } = this;
-    const vx = v.x, vy = v.y, vz = v.z;
-    const tx = 2 * (y * vz - z * vy);
-    const ty = 2 * (z * vx - x * vz);
-    const tz = 2 * (x * vy - y * vx);
-    return new Vec3(
-      vx + w * tx + y * tz - z * ty,
-      vy + w * ty + z * tx - x * tz,
-      vz + w * tz + x * ty - y * tx
+    const len = Math.sqrt(
+      this.x * this.x + this.y * this.y + this.z * this.z + this.w * this.w
     );
+    if (len < 1e-12) return new Quat(0, 0, 0, 1);
+    const inv = 1 / len;
+    return new Quat(this.x * inv, this.y * inv, this.z * inv, this.w * inv);
   }
 
-  /** Inverse rotate (rotate by conjugate) */
-  inverseRotateVec(v: Vec3): Vec3 {
-    return this.conjugate().rotateVec(v);
-  }
-
-  /** Create from axis-angle (axis need not be normalised) */
-  static fromAxisAngle(axis: Vec3, angleRad: number): Quat {
-    const n = axis.normalize();
-    const half = angleRad * 0.5;
+  static fromAxisAngle(axis: Vec3, angle: number): Quat {
+    const half = angle * 0.5;
     const s = Math.sin(half);
-    return new Quat(Math.cos(half), n.x * s, n.y * s, n.z * s);
+    const n = axis.normalize();
+    return new Quat(n.x * s, n.y * s, n.z * s, Math.cos(half));
   }
 
-  /** Create from Euler angles (radians, XYZ intrinsic) */
-  static fromEuler(rx: number, ry: number, rz: number): Quat {
-    const cx = Math.cos(rx * 0.5), sx = Math.sin(rx * 0.5);
-    const cy = Math.cos(ry * 0.5), sy = Math.sin(ry * 0.5);
-    const cz = Math.cos(rz * 0.5), sz = Math.sin(rz * 0.5);
-    return new Quat(
-      cx * cy * cz + sx * sy * sz,
-      sx * cy * cz - cx * sy * sz,
-      cx * sy * cz + sx * cy * sz,
-      cx * cy * sz - sx * sy * cz
-    );
+  toMat3(): Mat3 {
+    return Mat3.fromQuat(this);
   }
 
-  /** Spherical linear interpolation */
-  slerp(q: Quat, t: number): Quat {
-    let dot = this.w * q.w + this.x * q.x + this.y * q.y + this.z * q.z;
-    // Take shortest arc
-    let qw = q.w, qx = q.x, qy = q.y, qz = q.z;
-    if (dot < 0) { dot = -dot; qw = -qw; qx = -qx; qy = -qy; qz = -qz; }
-    if (dot > 0.9995) {
-      // Linear interpolation for nearly identical quaternions
-      const r = new Quat(
-        this.w + t * (qw - this.w),
-        this.x + t * (qx - this.x),
-        this.y + t * (qy - this.y),
-        this.z + t * (qz - this.z)
-      );
-      return r.normalize();
-    }
-    const theta0 = Math.acos(dot);
-    const theta = theta0 * t;
-    const sinTheta = Math.sin(theta);
-    const sinTheta0 = Math.sin(theta0);
-    const s0 = Math.cos(theta) - dot * sinTheta / sinTheta0;
-    const s1 = sinTheta / sinTheta0;
+  // Integrate angular velocity over dt using first-order approximation:
+  // q_new = normalize(q + 0.5 * dt * omega_quat * q)
+  integrate(omega: Vec3, dt: number): Quat {
+    const omegaQuat = new Quat(omega.x, omega.y, omega.z, 0);
+    const dq = omegaQuat.multiply(this);
     return new Quat(
-      s0 * this.w + s1 * qw,
-      s0 * this.x + s1 * qx,
-      s0 * this.y + s1 * qy,
-      s0 * this.z + s1 * qz
-    );
-  }
-
-  /** Integrate angular velocity (world space) over dt */
-  integrateAngularVelocity(omega: Vec3, dt: number): Quat {
-    const wx = omega.x, wy = omega.y, wz = omega.z;
-    const half = 0.5 * dt;
-    const dq = new Quat(
-      (-this.x * wx - this.y * wy - this.z * wz) * half,
-      ( this.w * wx + this.y * wz - this.z * wy) * half,
-      ( this.w * wy + this.z * wx - this.x * wz) * half,
-      ( this.w * wz + this.x * wy - this.y * wx) * half
-    );
-    return new Quat(
-      this.w + dq.w,
-      this.x + dq.x,
-      this.y + dq.y,
-      this.z + dq.z
+      this.x + 0.5 * dt * dq.x,
+      this.y + 0.5 * dt * dq.y,
+      this.z + 0.5 * dt * dq.z,
+      this.w + 0.5 * dt * dq.w
     ).normalize();
   }
 
-  toArray(): [number, number, number, number] {
-    return [this.w, this.x, this.y, this.z];
+  static slerp(a: Quat, b: Quat, t: number): Quat {
+    let dot = a.x * b.x + a.y * b.y + a.z * b.z + a.w * b.w;
+    let bx = b.x, by = b.y, bz = b.z, bw = b.w;
+    if (dot < 0) {
+      dot = -dot; bx = -bx; by = -by; bz = -bz; bw = -bw;
+    }
+    let scale0: number, scale1: number;
+    if (dot > 0.9995) {
+      scale0 = 1 - t; scale1 = t;
+    } else {
+      const theta = Math.acos(dot);
+      const sinTheta = Math.sin(theta);
+      scale0 = Math.sin((1 - t) * theta) / sinTheta;
+      scale1 = Math.sin(t * theta) / sinTheta;
+    }
+    return new Quat(
+      scale0 * a.x + scale1 * bx,
+      scale0 * a.y + scale1 * by,
+      scale0 * a.z + scale1 * bz,
+      scale0 * a.w + scale1 * bw
+    );
   }
 
-  static fromArray(arr: [number, number, number, number]): Quat {
-    return new Quat(arr[0], arr[1], arr[2], arr[3]);
+  clone(): Quat {
+    return new Quat(this.x, this.y, this.z, this.w);
   }
 
-  static identity(): Quat { return new Quat(1, 0, 0, 0); }
+  static identity(): Quat {
+    return new Quat(0, 0, 0, 1);
+  }
 }

@@ -1,102 +1,81 @@
-import { Vec3 } from './Vec3';
-import { Quat } from './Quat';
+import { Vec3 } from './Vec3.js';
+import type { Quat } from './Quat.js';
 
-/**
- * Column-major 3x3 matrix.
- * m[col][row] — columns are stored as Vec3 for clarity.
- * Internally: elements e[0..8] stored row-major for easy Vec3 multiply.
- * Row major: [ e0 e1 e2 ]   row0
- *            [ e3 e4 e5 ]   row1
- *            [ e6 e7 e8 ]   row2
- */
+// Column-major 3x3 matrix stored as Float64Array[9]
+// Indices: [col0row0, col0row1, col0row2, col1row0, col1row1, col1row2, col2row0, col2row1, col2row2]
 export class Mat3 {
-  // Row-major storage
-  e: [number, number, number, number, number, number, number, number, number];
+  readonly data: Float64Array;
 
-  constructor(
-    e0 = 1, e1 = 0, e2 = 0,
-    e3 = 0, e4 = 1, e5 = 0,
-    e6 = 0, e7 = 0, e8 = 1
-  ) {
-    this.e = [e0, e1, e2, e3, e4, e5, e6, e7, e8];
+  constructor(data?: Float64Array) {
+    this.data = data ?? new Float64Array(9);
   }
 
-  clone(): Mat3 {
-    return new Mat3(...this.e);
+  static identity(): Mat3 {
+    const m = new Mat3();
+    m.data[0] = 1; m.data[4] = 1; m.data[8] = 1;
+    return m;
   }
 
-  /** Multiply this * v */
-  mulVec(v: Vec3): Vec3 {
-    const e = this.e;
+  static diagonal(x: number, y: number, z: number): Mat3 {
+    const m = new Mat3();
+    m.data[0] = x; m.data[4] = y; m.data[8] = z;
+    return m;
+  }
+
+  static fromQuat(q: Quat): Mat3 {
+    const { x, y, z, w } = q;
+    const x2 = x + x, y2 = y + y, z2 = z + z;
+    const xx = x * x2, xy = x * y2, xz = x * z2;
+    const yy = y * y2, yz = y * z2, zz = z * z2;
+    const wx = w * x2, wy = w * y2, wz = w * z2;
+    const m = new Mat3();
+    const d = m.data;
+    d[0] = 1 - (yy + zz); d[1] = xy + wz;       d[2] = xz - wy;
+    d[3] = xy - wz;       d[4] = 1 - (xx + zz); d[5] = yz + wx;
+    d[6] = xz + wy;       d[7] = yz - wx;       d[8] = 1 - (xx + yy);
+    return m;
+  }
+
+  multiply(b: Mat3): Mat3 {
+    const a = this.data, bd = b.data;
+    const r = new Mat3();
+    const rd = r.data;
+    for (let col = 0; col < 3; col++) {
+      for (let row = 0; row < 3; row++) {
+        rd[col * 3 + row] =
+          a[0 * 3 + row]! * bd[col * 3 + 0]! +
+          a[1 * 3 + row]! * bd[col * 3 + 1]! +
+          a[2 * 3 + row]! * bd[col * 3 + 2]!;
+      }
+    }
+    return r;
+  }
+
+  multiplyVec3(v: Vec3): Vec3 {
+    const d = this.data;
     return new Vec3(
-      e[0] * v.x + e[1] * v.y + e[2] * v.z,
-      e[3] * v.x + e[4] * v.y + e[5] * v.z,
-      e[6] * v.x + e[7] * v.y + e[8] * v.z
-    );
-  }
-
-  /** Multiply this * m */
-  mul(m: Mat3): Mat3 {
-    const a = this.e, b = m.e;
-    return new Mat3(
-      a[0]*b[0]+a[1]*b[3]+a[2]*b[6],  a[0]*b[1]+a[1]*b[4]+a[2]*b[7],  a[0]*b[2]+a[1]*b[5]+a[2]*b[8],
-      a[3]*b[0]+a[4]*b[3]+a[5]*b[6],  a[3]*b[1]+a[4]*b[4]+a[5]*b[7],  a[3]*b[2]+a[4]*b[5]+a[5]*b[8],
-      a[6]*b[0]+a[7]*b[3]+a[8]*b[6],  a[6]*b[1]+a[7]*b[4]+a[8]*b[7],  a[6]*b[2]+a[7]*b[5]+a[8]*b[8]
+      d[0]! * v.x + d[3]! * v.y + d[6]! * v.z,
+      d[1]! * v.x + d[4]! * v.y + d[7]! * v.z,
+      d[2]! * v.x + d[5]! * v.y + d[8]! * v.z
     );
   }
 
   transpose(): Mat3 {
-    const e = this.e;
-    return new Mat3(e[0],e[3],e[6], e[1],e[4],e[7], e[2],e[5],e[8]);
+    const d = this.data;
+    const r = new Mat3();
+    const rd = r.data;
+    rd[0] = d[0]!; rd[1] = d[3]!; rd[2] = d[6]!;
+    rd[3] = d[1]!; rd[4] = d[4]!; rd[5] = d[7]!;
+    rd[6] = d[2]!; rd[7] = d[5]!; rd[8] = d[8]!;
+    return r;
   }
 
-  det(): number {
-    const e = this.e;
-    return e[0]*(e[4]*e[8]-e[5]*e[7]) - e[1]*(e[3]*e[8]-e[5]*e[6]) + e[2]*(e[3]*e[7]-e[4]*e[6]);
+  // Computes R * M * R^T  (transforms an inertia tensor to world space)
+  sandwichTransform(R: Mat3): Mat3 {
+    return R.multiply(this).multiply(R.transpose());
   }
 
-  inverse(): Mat3 {
-    const e = this.e;
-    const d = this.det();
-    if (Math.abs(d) < 1e-15) return Mat3.identity();
-    const inv = 1 / d;
-    return new Mat3(
-      (e[4]*e[8]-e[5]*e[7])*inv, -(e[1]*e[8]-e[2]*e[7])*inv,  (e[1]*e[5]-e[2]*e[4])*inv,
-     -(e[3]*e[8]-e[5]*e[6])*inv,  (e[0]*e[8]-e[2]*e[6])*inv, -(e[0]*e[5]-e[2]*e[3])*inv,
-      (e[3]*e[7]-e[4]*e[6])*inv, -(e[0]*e[7]-e[1]*e[6])*inv,  (e[0]*e[4]-e[1]*e[3])*inv
-    );
+  clone(): Mat3 {
+    return new Mat3(new Float64Array(this.data));
   }
-
-  scale(s: number): Mat3 {
-    return new Mat3(...(this.e.map(v => v * s) as Mat3['e']));
-  }
-
-  add(m: Mat3): Mat3 {
-    const a = this.e, b = m.e;
-    return new Mat3(
-      a[0]+b[0], a[1]+b[1], a[2]+b[2],
-      a[3]+b[3], a[4]+b[4], a[5]+b[5],
-      a[6]+b[6], a[7]+b[7], a[8]+b[8]
-    );
-  }
-
-  /** Build rotation matrix from quaternion */
-  static fromQuat(q: Quat): Mat3 {
-    const { w, x, y, z } = q;
-    return new Mat3(
-      1-2*(y*y+z*z),   2*(x*y-w*z),     2*(x*z+w*y),
-      2*(x*y+w*z),     1-2*(x*x+z*z),   2*(y*z-w*x),
-      2*(x*z-w*y),     2*(y*z+w*x),     1-2*(x*x+y*y)
-    );
-  }
-
-  /** Diagonal matrix */
-  static diag(x: number, y: number, z: number): Mat3 {
-    return new Mat3(x,0,0, 0,y,0, 0,0,z);
-  }
-
-  static identity(): Mat3 { return new Mat3(); }
-  static zero(): Mat3     { return new Mat3(0,0,0, 0,0,0, 0,0,0); }
-
-  toArray(): Mat3['e'] { return [...this.e] as Mat3['e']; }
 }
