@@ -115,7 +115,9 @@ export class ControlPanel {
     this.container.querySelector('#btn-reset')!.addEventListener('click', () => this.sim.reset());
     this.container.querySelector('#btn-spawn')!.addEventListener('click', () => {
       const sel = this.container.querySelector('#spawn-select') as HTMLSelectElement;
-      const body = this.sim.spawn(sel.value as PresetName);
+      const body = this.sim.spawn(sel.value as PresetName, 0, 0);
+      this.sim.setFollowCamera(true);
+      (this.container.querySelector('#chk-follow') as HTMLInputElement).checked = true;
       this.sim.selectBody(body);
     });
   }

@@ -57,14 +57,11 @@ export class Simulation {
     this.sceneManager.render();
   }
 
-  spawn(name: PresetName): RigidBody {
-    const offset = new Vec3(
-      (Math.random() - 0.5) * 4,
-      0,
-      (Math.random() - 0.5) * 4
-    );
+  spawn(name: PresetName, worldX?: number, worldZ?: number): RigidBody {
     const body = spawnPreset(name);
-    body.position.addMut(offset);
+    if (worldX !== undefined) body.position.x = worldX;
+    if (worldZ !== undefined) body.position.z = worldZ;
+    body.previousPosition.copyFrom(body.position);
     this.world.addBody(body);
     this.bodyRenderer.addBody(body);
     return body;
@@ -82,11 +79,17 @@ export class Simulation {
     this.selectedBody = body;
     this.bodyRenderer.selectedId = body?.id ?? null;
 
-    if (this.followCamera && body) {
-      const mesh = this.bodyRenderer.getMesh(body.id);
-      this.sceneManager.setFollowTarget(mesh ?? null);
+    const mesh = body ? this.bodyRenderer.getMesh(body.id) : null;
+
+    if (this.followCamera && mesh) {
+      this.sceneManager.setFollowTarget(mesh);
     } else if (!body) {
       this.sceneManager.setFollowTarget(null);
+    }
+
+    // Snap camera to the body's actual physics position (mesh hasn't been synced yet)
+    if (body) {
+      this.sceneManager.snapToPosition(body.position.x, body.position.y, body.position.z);
     }
 
     this.onSelect?.(body);

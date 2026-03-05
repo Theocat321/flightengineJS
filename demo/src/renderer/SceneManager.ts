@@ -88,11 +88,19 @@ export class SceneManager {
     }
   }
 
+  snapToPosition(x: number, y: number, z: number): void {
+    const target = new THREE.Vector3(x, y, z);
+    const camPos = target.clone().add(this.followOffset);
+    this.camera.position.copy(camPos);
+    this.cameraLerpPos.copy(camPos);
+    this.controls.target.copy(target);
+    this.controls.update();
+  }
+
   update(alpha: number): void {
     if (this.followTarget) {
-      const targetPos = this.followTarget.position.clone().add(
-        this.followOffset.clone().applyQuaternion(this.followTarget.quaternion)
-      );
+      // Use world-space offset so camera doesn't spin with the object
+      const targetPos = this.followTarget.position.clone().add(this.followOffset);
       this.cameraLerpPos.lerp(targetPos, 0.05);
       this.camera.position.copy(this.cameraLerpPos);
       this.camera.lookAt(this.followTarget.position);
