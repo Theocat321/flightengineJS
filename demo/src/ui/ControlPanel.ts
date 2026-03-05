@@ -1,5 +1,5 @@
 import { Simulation } from '../simulation/Simulation.js';
-import { RigidBody } from '../physics/RigidBody.js';
+import { RigidBody } from 'flight-engine-js';
 import { Telemetry } from './Telemetry.js';
 import { PRESET_NAMES, PresetName } from '../simulation/Presets.js';
 
