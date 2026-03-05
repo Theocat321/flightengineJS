@@ -5,6 +5,19 @@ import { Shape, computeInertiaTensor } from './shapes.js';
 
 let nextId = 0;
 
+export interface AttachedSurface {
+  localPosition: Vec3;
+  localNormal: Vec3;
+  area: number;
+  cd: number;
+  cl0: number;
+  clSlope: number;
+}
+
+export interface GuidanceModule {
+  update(body: RigidBody, dt: number): void;
+}
+
 export interface AeroProperties {
   wingArea: number;
   cd: number;        // drag coefficient
@@ -48,6 +61,8 @@ export class RigidBody {
   // Material
   restitution: number;
   friction: number;
+  attachedSurfaces: AttachedSurface[] = [];
+  guidanceModule: GuidanceModule | null = null;
 
   constructor(shape: Shape, mass: number, aero?: Partial<AeroProperties>) {
     this.id = nextId++;

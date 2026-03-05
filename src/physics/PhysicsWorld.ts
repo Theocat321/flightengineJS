@@ -1,5 +1,5 @@
 import { RigidBody } from './RigidBody.js';
-import { applyGravity, applyThrust, applyAeroDrag, applyAeroLift, applyAngularDamping } from './Forces.js';
+import { applyGravity, applyThrust, applyAeroDrag, applyAeroLift, applyAngularDamping, applyAttachedSurfaces } from './Forces.js';
 import { integrate } from './Integrator.js';
 import { detectCollisions } from './CollisionDetection.js';
 import { resolveContacts } from './ContactResolver.js';
@@ -62,6 +62,10 @@ export class PhysicsWorld {
       applyAeroDrag(body, this.rho);
       applyAeroLift(body, this.rho);
       applyAngularDamping(body);
+      if (body.guidanceModule) {
+        body.guidanceModule.update(body, dt);
+      }
+      applyAttachedSurfaces(body, this.rho);
       body.updateInvInertiaWorld();
     }
 

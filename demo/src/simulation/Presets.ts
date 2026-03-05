@@ -1,6 +1,6 @@
-import { RigidBody, ShapeType, Vec3, Quat } from 'flight-engine-js';
+import { RigidBody, ShapeType, Vec3, Quat, createBody, MissileBody } from 'flight-engine-js';
 
-export type PresetName = 'Glider' | 'Rocket' | 'Ball' | 'Box';
+export type PresetName = 'Glider' | 'Rocket' | 'Ball' | 'Box' | 'Missile';
 
 export interface SpawnConfig {
   position?: Vec3;
@@ -58,6 +58,12 @@ export function spawnPreset(name: PresetName, config: SpawnConfig = {}): RigidBo
       body.restitution = 0.3;
       body.friction = 0.6;
       break;
+
+    case 'Missile':
+      body = createBody(MissileBody);
+      body.position.set(0, 5, 0);
+      body.orientation = Quat.fromAxisAngle(new Vec3(1, 0, 0), Math.PI / 2);
+      break;
   }
 
   if (config.position) body.position.copyFrom(config.position);
@@ -70,4 +76,4 @@ export function spawnPreset(name: PresetName, config: SpawnConfig = {}): RigidBo
   return body;
 }
 
-export const PRESET_NAMES: PresetName[] = ['Glider', 'Rocket', 'Ball', 'Box'];
+export const PRESET_NAMES: PresetName[] = ['Glider', 'Rocket', 'Ball', 'Box', 'Missile'];

@@ -1,5 +1,5 @@
 import { Vec3 } from '../math/Vec3.js';
-import { RigidBody } from './RigidBody.js';
+import { RigidBody, AttachedSurface } from './RigidBody.js';
 
 const GRAVITY = new Vec3(0, -9.81, 0);
 
@@ -52,4 +52,30 @@ export function applyAeroLift(body: RigidBody, rho: number): void {
 
 export function applyAngularDamping(body: RigidBody, damping: number = 0.98): void {
   body.angularVelocity.scaleMut(damping);
+}
+
+export function applyAttachedSurfaces(body: RigidBody, rho: number): void {
+  if (body.attachedSurfaces.length === 0) return;
+
+  const speed = body.velocity.length();
+  if (speed < 1e-4) return;
+  const vHat = body.velocity.scale(1 / speed);
+
+  for (const surface of body.attachedSurfaces) {
+    const worldNormal = body.orientation.rotateVector(surface.localNormal);
+    const worldPos = body.orientation.rotateVector(surface.localPosition).add(body.position);
+
+    const alpha = Math.asin(Math.max(-1, Math.min(1, vHat.dot(worldNormal))));
+    const clMax = surface.cl0 + surface.clSlope * (Math.PI / 6);
+    const cl = Math.max(-clMax, Math.min(clMax, surface.cl0 + surface.clSlope * alpha));
+
+    const dynPressure = 0.5 * rho * speed * speed;
+
+    const dragMag = dynPressure * surface.cd * surface.area;
+    body.applyForceAtPoint(vHat.scale(-dragMag), worldPos);
+
+    const liftDir = worldNormal.sub(vHat.scale(worldNormal.dot(vHat))).normalize();
+    const liftMag = dynPressure * cl * surface.area;
+    body.applyForceAtPoint(liftDir.scale(liftMag), worldPos);
+  }
 }

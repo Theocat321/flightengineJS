@@ -3,6 +3,7 @@ import { Mat3 } from '../math/Mat3.js';
 export enum ShapeType {
   Sphere = 'Sphere',
   Box = 'Box',
+  Cylinder = 'Cylinder',
 }
 
 export interface SphereShape {
@@ -15,7 +16,13 @@ export interface BoxShape {
   halfExtents: { x: number; y: number; z: number };
 }
 
-export type Shape = SphereShape | BoxShape;
+export interface CylinderShape {
+  type: ShapeType.Cylinder;
+  radius: number;
+  height: number;
+}
+
+export type Shape = SphereShape | BoxShape | CylinderShape;
 
 export function computeInertiaTensor(shape: Shape, mass: number): Mat3 {
   switch (shape.type) {
@@ -31,6 +38,13 @@ export function computeInertiaTensor(shape: Shape, mass: number): Mat3 {
       const Iy = (1 / 12) * mass * (ex * ex + ez * ez);
       const Iz = (1 / 12) * mass * (ex * ex + ey * ey);
       return Mat3.diagonal(Ix, Iy, Iz);
+    }
+    case ShapeType.Cylinder: {
+      const r2 = shape.radius * shape.radius;
+      const h2 = shape.height * shape.height;
+      const Iaxial = 0.5 * mass * r2;
+      const Ilateral = (1 / 12) * mass * (3 * r2 + h2);
+      return Mat3.diagonal(Ilateral, Iaxial, Ilateral);
     }
   }
 }

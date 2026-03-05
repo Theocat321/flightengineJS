@@ -19,17 +19,19 @@ export function gridToWorld(col: number, row: number): { x: number; z: number } 
 }
 
 const PRESET_COLORS: Record<PresetName, string> = {
-  Glider: '#4a9eff',
-  Rocket: '#ff6b4a',
-  Ball:   '#4aff8a',
-  Box:    '#ffe14a',
+  Glider:  '#4a9eff',
+  Rocket:  '#ff6b4a',
+  Ball:    '#4aff8a',
+  Box:     '#ffe14a',
+  Missile: '#ff4a4a',
 };
 
 const PRESET_ABBR: Record<PresetName, string> = {
-  Glider: 'GL',
-  Rocket: 'RK',
-  Ball:   'BA',
-  Box:    'BX',
+  Glider:  'GL',
+  Rocket:  'RK',
+  Ball:    'BA',
+  Box:     'BX',
+  Missile: 'MS',
 };
 
 type Tool = PresetName | 'erase';

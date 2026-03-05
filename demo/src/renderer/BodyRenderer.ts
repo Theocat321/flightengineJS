@@ -24,6 +24,8 @@ export class BodyRenderer {
     const shape = body.shape;
     if (shape.type === ShapeType.Sphere) {
       geo = new THREE.SphereGeometry(shape.radius, 16, 12);
+    } else if (shape.type === ShapeType.Cylinder) {
+      geo = new THREE.CylinderGeometry(shape.radius, shape.radius, shape.height, 16);
     } else {
       const { x, y, z } = shape.halfExtents;
       geo = new THREE.BoxGeometry(x * 2, y * 2, z * 2);
