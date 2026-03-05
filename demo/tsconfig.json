@@ -1,0 +1,9 @@
+{
+  "extends": "../tsconfig.json",
+  "compilerOptions": {
+    "paths": {
+      "flight-engine-js": ["../src/index.ts"]
+    }
+  },
+  "include": ["src"]
+}
