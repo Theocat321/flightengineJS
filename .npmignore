@@ -1,0 +1,6 @@
+demo/
+docs/
+src/
+*.config.ts
+tsconfig.json
+.worktrees/
