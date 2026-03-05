@@ -33,11 +33,12 @@ export const MissileBody: BodyDefinition = {
   },
   restitution: 0.05,
   friction: 0.4,
+  // Fins at tail end (+Z local = aft of CG). Cylinder axis = -Z = forward.
   attachedSurfaces: [
-    { localPosition: new Vec3( 0,    0.12, -0.8), localNormal: new Vec3( 0,  1, 0), area: 0.04, cd: 0.012, cl0: 0, clSlope: 3.5 },
-    { localPosition: new Vec3( 0,   -0.12, -0.8), localNormal: new Vec3( 0, -1, 0), area: 0.04, cd: 0.012, cl0: 0, clSlope: 3.5 },
-    { localPosition: new Vec3( 0.12,  0,   -0.8), localNormal: new Vec3( 1,  0, 0), area: 0.04, cd: 0.012, cl0: 0, clSlope: 3.5 },
-    { localPosition: new Vec3(-0.12,  0,   -0.8), localNormal: new Vec3(-1,  0, 0), area: 0.04, cd: 0.012, cl0: 0, clSlope: 3.5 },
+    { localPosition: new Vec3( 0,    0.12,  0.8), localNormal: new Vec3( 0,  1, 0), area: 0.04, cd: 0.012, cl0: 0, clSlope: 3.5 },
+    { localPosition: new Vec3( 0,   -0.12,  0.8), localNormal: new Vec3( 0, -1, 0), area: 0.04, cd: 0.012, cl0: 0, clSlope: 3.5 },
+    { localPosition: new Vec3( 0.12,  0,    0.8), localNormal: new Vec3( 1,  0, 0), area: 0.04, cd: 0.012, cl0: 0, clSlope: 3.5 },
+    { localPosition: new Vec3(-0.12,  0,    0.8), localNormal: new Vec3(-1,  0, 0), area: 0.04, cd: 0.012, cl0: 0, clSlope: 3.5 },
   ],
 };
 

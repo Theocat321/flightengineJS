@@ -244,6 +244,48 @@ select:focus {
   cursor: pointer;
 }
 
+/* ── Sprite bar ── */
+.sprite-bar {
+  display: flex;
+  gap: 5px;
+  flex-wrap: wrap;
+  margin-bottom: 2px;
+}
+
+.sprite-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 6px 4px 5px;
+  border-radius: 6px;
+  border: 2px solid transparent;
+  cursor: pointer;
+  flex: 1;
+  min-width: 44px;
+  transition: background 0.1s, border-color 0.1s;
+  user-select: none;
+}
+
+.sprite-btn:hover { background: var(--btn-hover); }
+
+.sprite-btn.active {
+  border-color: var(--accent);
+  background: rgba(74, 158, 255, 0.12);
+}
+
+.sprite-icon {
+  width: 22px;
+  height: 22px;
+  border-radius: 4px;
+}
+
+.sprite-label {
+  font-size: 9px;
+  color: var(--text-muted);
+  text-align: center;
+}
+
 /* ── Setup page ── */
 #setup-page {
   position: fixed;

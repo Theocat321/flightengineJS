@@ -1,4 +1,4 @@
-import { PhysicsWorld, RigidBody, Vec3 } from 'flight-engine-js';
+import { PhysicsWorld, RigidBody, Vec3, applyExplosion, spawnDebris } from 'flight-engine-js';
 import { SceneManager } from '../renderer/SceneManager.js';
 import { BodyRenderer } from '../renderer/BodyRenderer.js';
 import { DebugRenderer } from '../renderer/DebugRenderer.js';
@@ -21,6 +21,11 @@ export class Simulation {
 
   onSelect: ((body: RigidBody | null) => void) | null = null;
 
+  /** Bodies that explode on contact (e.g. missiles) */
+  private _explosiveBodies: Set<number> = new Set();
+  /** Bodies queued for removal after the physics step completes */
+  private _removalQueue: Set<number> = new Set();
+
   private _rafId: number = 0;
   private _lastTime: number = 0;
   private _resetPressed = false;
@@ -31,6 +36,34 @@ export class Simulation {
     this.bodyRenderer = new BodyRenderer(this.sceneManager.scene);
     this.debugRenderer = new DebugRenderer(this.sceneManager.scene);
     this.input = new InputManager();
+
+    // Wire explosion callback — only trigger on real impacts (speed > threshold)
+    this.world.onContact = (contacts) => {
+      for (const contact of contacts) {
+        const bodies = [contact.bodyA, contact.bodyB].filter(Boolean) as RigidBody[];
+        for (const b of bodies) {
+          if (
+            this._explosiveBodies.has(b.id) &&
+            !this._removalQueue.has(b.id) &&
+            b.velocity.length() > 8
+          ) {
+            this._removalQueue.add(b.id);
+            this._triggerExplosion(b);
+          }
+        }
+      }
+    };
+  }
+
+  private _triggerExplosion(body: RigidBody): void {
+    const origin = body.position.clone();
+    applyExplosion(this.world, origin, 8000, 25);
+
+    // Spawn debris and add renderers for them
+    const debris = spawnDebris(this.world, origin, 24, 35, { mass: 0.3, radius: 0.06 });
+    for (const d of debris) {
+      this.bodyRenderer.addBody(d);
+    }
   }
 
   start(): void {
@@ -49,6 +82,7 @@ export class Simulation {
   stepOnce(): void {
     const dt = 1 / 60;
     this._physicsStep(dt);
+    this._flushRemovals();
     this.bodyRenderer.syncBodies(this.world.bodies, 1);
     this.debugRenderer.update(this.world);
     this.sceneManager.update(1);
@@ -62,6 +96,9 @@ export class Simulation {
     body.previousPosition.copyFrom(body.position);
     this.world.addBody(body);
     this.bodyRenderer.addBody(body);
+    if (name === 'Missile') {
+      this._explosiveBodies.add(body.id);
+    }
     return body;
   }
 
@@ -69,6 +106,7 @@ export class Simulation {
     if (this.selectedBody === body) {
       this.selectBody(null);
     }
+    this._explosiveBodies.delete(body.id);
     this.world.removeBody(body);
     this.bodyRenderer.removeBody(body);
   }
@@ -77,15 +115,14 @@ export class Simulation {
     this.selectedBody = body;
     this.bodyRenderer.selectedId = body?.id ?? null;
 
-    const mesh = body ? this.bodyRenderer.getMesh(body.id) : null;
+    const obj = body ? this.bodyRenderer.getMesh(body.id) : null;
 
-    if (this.followCamera && mesh) {
-      this.sceneManager.setFollowTarget(mesh);
+    if (this.followCamera && obj) {
+      this.sceneManager.setFollowTarget(obj);
     } else if (!body) {
       this.sceneManager.setFollowTarget(null);
     }
 
-    // Snap camera to the body's actual physics position (mesh hasn't been synced yet)
     if (body) {
       this.sceneManager.snapToPosition(body.position.x, body.position.y, body.position.z);
     }
@@ -96,8 +133,8 @@ export class Simulation {
   setFollowCamera(enabled: boolean): void {
     this.followCamera = enabled;
     if (enabled && this.selectedBody) {
-      const mesh = this.bodyRenderer.getMesh(this.selectedBody.id);
-      this.sceneManager.setFollowTarget(mesh ?? null);
+      const obj = this.bodyRenderer.getMesh(this.selectedBody.id);
+      this.sceneManager.setFollowTarget(obj ?? null);
     } else {
       this.sceneManager.setFollowTarget(null);
     }
@@ -110,9 +147,20 @@ export class Simulation {
   reset(): void {
     this.world.clear();
     this.bodyRenderer.clear();
+    this._explosiveBodies.clear();
+    this._removalQueue.clear();
     this.selectedBody = null;
     this.bodyRenderer.selectedId = null;
     this.onSelect?.(null);
+  }
+
+  private _flushRemovals(): void {
+    if (this._removalQueue.size === 0) return;
+    for (const id of this._removalQueue) {
+      const body = this.world.bodies.find(b => b.id === id);
+      if (body) this.removeBody(body);
+    }
+    this._removalQueue.clear();
   }
 
   private _loop(time: number): void {
@@ -121,7 +169,6 @@ export class Simulation {
     const dt = Math.min((time - this._lastTime) / 1000, MAX_DT);
     this._lastTime = time;
 
-    // Handle thrust for selected body
     if (this.selectedBody) {
       if (this.input.isThrustActive()) {
         this.world.thrustActiveIds.add(this.selectedBody.id);
@@ -130,7 +177,6 @@ export class Simulation {
       }
     }
 
-    // Handle reset
     const rDown = this.input.isResetPressed();
     if (rDown && !this._resetPressed) {
       this.reset();
@@ -139,6 +185,7 @@ export class Simulation {
 
     if (!this.paused) {
       this._physicsStep(dt);
+      this._flushRemovals();
     }
 
     const alpha = this.world.getInterpolationAlpha();
@@ -149,23 +196,16 @@ export class Simulation {
   }
 
   private _physicsStep(dt: number): void {
-    // Apply control torques from input
     if (this.selectedBody) {
       const body = this.selectedBody;
       const pitch = this.input.getPitchInput();
-      const roll = this.input.getRollInput();
-      const yaw = this.input.getYawInput();
+      const roll  = this.input.getRollInput();
+      const yaw   = this.input.getYawInput();
 
       if (pitch !== 0 || roll !== 0 || yaw !== 0) {
-        // Convert body-local control axes to world torque
-        const pitchAxis = body.getRightDir();
-        const rollAxis = body.getForwardDir();
-        const yawAxis = body.getUpDir();
-
-        const torque = pitchAxis.scale(pitch * CONTROL_TORQUE)
-          .add(rollAxis.scale(roll * CONTROL_TORQUE))
-          .add(yawAxis.scale(yaw * CONTROL_TORQUE));
-
+        const torque = body.getRightDir().scale(pitch * CONTROL_TORQUE)
+          .add(body.getForwardDir().scale(roll * CONTROL_TORQUE))
+          .add(body.getUpDir().scale(yaw * CONTROL_TORQUE));
         body.applyTorque(torque);
       }
     }

@@ -1,7 +1,7 @@
 import { RigidBody } from './RigidBody.js';
 import { applyGravity, applyThrust, applyAeroDrag, applyAeroLift, applyAngularDamping, applyAttachedSurfaces } from './Forces.js';
 import { integrate } from './Integrator.js';
-import { detectCollisions } from './CollisionDetection.js';
+import { detectCollisions, Contact } from './CollisionDetection.js';
 import { resolveContacts } from './ContactResolver.js';
 
 export class PhysicsWorld {
@@ -9,6 +9,9 @@ export class PhysicsWorld {
   gravity: number = 9.81;
   rho: number = 1.225;  // air density kg/m³
   thrustActiveIds: Set<number> = new Set();
+
+  /** Called after contact resolution each substep. Use to trigger game events. */
+  onContact: ((contacts: Contact[]) => void) | null = null;
 
   private readonly fixedDt: number = 1 / 120;
   private readonly maxSubsteps: number = 8;
@@ -74,6 +77,11 @@ export class PhysicsWorld {
 
     // Resolve contacts
     resolveContacts(contacts, dt);
+
+    // Notify contact listener
+    if (this.onContact && contacts.length > 0) {
+      this.onContact(contacts);
+    }
 
     // Integrate
     for (const body of this.bodies) {

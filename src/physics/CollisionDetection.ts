@@ -1,6 +1,6 @@
 import { Vec3 } from '../math/Vec3.js';
 import { RigidBody } from './RigidBody.js';
-import { ShapeType } from './shapes.js';
+import { ShapeType, CylinderShape } from './shapes.js';
 
 export interface Contact {
   bodyA: RigidBody;
@@ -92,6 +92,47 @@ function boxVsSphere(box: RigidBody, halfExtents: { x: number; y: number; z: num
   };
 }
 
+function cylinderVsPlane(body: RigidBody, shape: CylinderShape): Contact[] {
+  const contacts: Contact[] = [];
+  const halfH = shape.height / 2;
+  const r = shape.radius;
+
+  // Cylinder axis = forward direction (local -Z rotated to world).
+  // With orientation rotateX(PI/2) this gives world +Y — missile stands upright.
+  const axisWorld = body.orientation.rotateVector(new Vec3(0, 0, -1));
+
+  const caps = [
+    body.position.add(axisWorld.scale(halfH)),
+    body.position.sub(axisWorld.scale(halfH)),
+  ];
+
+  // Perpendicular basis for rim sampling
+  const tmp   = Math.abs(axisWorld.y) < 0.9 ? new Vec3(0, 1, 0) : new Vec3(1, 0, 0);
+  const perp1 = axisWorld.cross(tmp).normalize();
+  const perp2 = axisWorld.cross(perp1).normalize();
+
+  const RIM_SAMPLES = 8;
+  for (const capCentre of caps) {
+    // Cap centre itself
+    const pen0 = -(capCentre.y - GROUND_Y);
+    if (pen0 > 0) {
+      contacts.push({ bodyA: body, bodyB: null, point: new Vec3(capCentre.x, GROUND_Y, capCentre.z), normal: new Vec3(0, 1, 0), penetration: pen0 });
+    }
+    // Rim points
+    for (let i = 0; i < RIM_SAMPLES; i++) {
+      const angle = (i / RIM_SAMPLES) * Math.PI * 2;
+      const rimPoint = capCentre
+        .add(perp1.scale(Math.cos(angle) * r))
+        .add(perp2.scale(Math.sin(angle) * r));
+      const pen = -(rimPoint.y - GROUND_Y);
+      if (pen > 0) {
+        contacts.push({ bodyA: body, bodyB: null, point: new Vec3(rimPoint.x, GROUND_Y, rimPoint.z), normal: new Vec3(0, 1, 0), penetration: pen });
+      }
+    }
+  }
+  return contacts;
+}
+
 export function detectCollisions(bodies: RigidBody[]): Contact[] {
   const contacts: Contact[] = [];
 
@@ -102,6 +143,8 @@ export function detectCollisions(bodies: RigidBody[]): Contact[] {
       if (c) contacts.push(c);
     } else if (shape.type === ShapeType.Box) {
       contacts.push(...boxVsPlane(body, shape.halfExtents));
+    } else if (shape.type === ShapeType.Cylinder) {
+      contacts.push(...cylinderVsPlane(body, shape));
     }
   }
 

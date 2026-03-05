@@ -61,7 +61,8 @@ export function spawnPreset(name: PresetName, config: SpawnConfig = {}): RigidBo
 
     case 'Missile':
       body = createBody(MissileBody);
-      body.position.set(0, 5, 0);
+      // height/2 = 1.0 — sits on floor. orientation makes -Z local → +Y world (upward thrust).
+      body.position.set(0, 1.01, 0);
       body.orientation = Quat.fromAxisAngle(new Vec3(1, 0, 0), Math.PI / 2);
       break;
   }

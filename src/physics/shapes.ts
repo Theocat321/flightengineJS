@@ -42,9 +42,10 @@ export function computeInertiaTensor(shape: Shape, mass: number): Mat3 {
     case ShapeType.Cylinder: {
       const r2 = shape.radius * shape.radius;
       const h2 = shape.height * shape.height;
-      const Iaxial = 0.5 * mass * r2;
-      const Ilateral = (1 / 12) * mass * (3 * r2 + h2);
-      return Mat3.diagonal(Ilateral, Iaxial, Ilateral);
+      // Cylinder axis = local -Z (forward direction). Iaxial is about the spin axis.
+      const Iaxial   = 0.5 * mass * r2;                       // spinning about nose-tail axis
+      const Ilateral = (1 / 12) * mass * (3 * r2 + h2);      // tumbling perpendicular
+      return Mat3.diagonal(Ilateral, Ilateral, Iaxial);       // Z is axial
     }
   }
 }
