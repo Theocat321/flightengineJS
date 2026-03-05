@@ -48,12 +48,11 @@ export class DebugRenderer {
 
     this.overlay.textContent = `FPS: ${this.fps}  |  substeps: ${world.substepsLastFrame}  |  bodies: ${world.bodies.length}`;
 
-    const rho = world.rho;
     for (const body of world.bodies) {
       if (!this.arrows.has(body.id)) {
         this._createArrows(body.id);
       }
-      this._updateArrows(body, rho, world.thrustActiveIds.has(body.id));
+      this._updateArrows(body, body.thrustEnabled);
     }
 
     // Remove arrows for removed bodies
@@ -88,7 +87,8 @@ export class DebugRenderer {
     for (const v of Object.values(arrs)) this.scene.remove(v);
   }
 
-  private _updateArrows(body: RigidBody, rho: number, thrustActive: boolean): void {
+  private _updateArrows(body: RigidBody, thrustActive: boolean): void {
+    const rho = 1.225; // sea-level density for debug visualisation
     const arrs = this.arrows.get(body.id)!;
     const pos = new THREE.Vector3(body.position.x, body.position.y, body.position.z);
 

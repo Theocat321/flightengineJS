@@ -170,11 +170,7 @@ export class Simulation {
     this._lastTime = time;
 
     if (this.selectedBody) {
-      if (this.input.isThrustActive()) {
-        this.world.thrustActiveIds.add(this.selectedBody.id);
-      } else {
-        this.world.thrustActiveIds.delete(this.selectedBody.id);
-      }
+      this.selectedBody.thrustEnabled = this.input.isThrustActive();
     }
 
     const rDown = this.input.isResetPressed();

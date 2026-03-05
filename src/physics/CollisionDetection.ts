@@ -1,6 +1,6 @@
 import { Vec3 } from '../math/Vec3.js';
 import { RigidBody } from './RigidBody.js';
-import { ShapeType, CylinderShape } from './shapes.js';
+import { ShapeType, CylinderShape, CapsuleShape } from './shapes.js';
 
 export interface Contact {
   bodyA: RigidBody;
@@ -133,9 +133,176 @@ function cylinderVsPlane(body: RigidBody, shape: CylinderShape): Contact[] {
   return contacts;
 }
 
+// ── Cylinder vs Sphere ────────────────────────────────────────────────────────
+
+/**
+ * Closest point on a line segment [p0, p1] to point q, clamped to [0,1].
+ */
+function closestPointOnSegment(p0: Vec3, p1: Vec3, q: Vec3): Vec3 {
+  const d = p1.sub(p0);
+  const lenSq = d.lengthSq();
+  if (lenSq < 1e-12) return p0.clone();
+  const t = Math.max(0, Math.min(1, q.sub(p0).dot(d) / lenSq));
+  return p0.add(d.scale(t));
+}
+
+function cylinderVsSphere(
+  cyl: RigidBody, cs: CylinderShape,
+  sph: RigidBody, sr: number
+): Contact | null {
+  const halfH = cs.height / 2;
+  // Cylinder axis in world space (local -Z)
+  const axis = cyl.orientation.rotateVector(new Vec3(0, 0, -1));
+  const p0 = cyl.position.sub(axis.scale(halfH));
+  const p1 = cyl.position.add(axis.scale(halfH));
+
+  const closest = closestPointOnSegment(p0, p1, sph.position);
+  const diff = sph.position.sub(closest);
+  const distSq = diff.lengthSq();
+  const totalR = cs.radius + sr;
+  if (distSq >= totalR * totalR) return null;
+
+  const dist = Math.sqrt(distSq);
+  const normal = dist < 1e-8 ? new Vec3(0, 1, 0) : diff.scale(1 / dist);
+  return {
+    bodyA: sph,
+    bodyB: cyl,
+    point: closest,
+    normal,
+    penetration: totalR - dist,
+  };
+}
+
+// ── Cylinder vs Cylinder ──────────────────────────────────────────────────────
+
+function cylinderVsCylinder(
+  a: RigidBody, sa: CylinderShape,
+  b: RigidBody, sb: CylinderShape
+): Contact | null {
+  const halfHa = sa.height / 2;
+  const halfHb = sb.height / 2;
+  const axisA = a.orientation.rotateVector(new Vec3(0, 0, -1));
+  const axisB = b.orientation.rotateVector(new Vec3(0, 0, -1));
+
+  const pA0 = a.position.sub(axisA.scale(halfHa));
+  const pA1 = a.position.add(axisA.scale(halfHa));
+  const pB0 = b.position.sub(axisB.scale(halfHb));
+  const pB1 = b.position.add(axisB.scale(halfHb));
+
+  // Find closest points between the two axis segments
+  const { ptA, ptB } = closestPointsBetweenSegments(pA0, pA1, pB0, pB1);
+
+  const diff = ptA.sub(ptB);
+  const dist = diff.length();
+  const totalR = sa.radius + sb.radius;
+  if (dist >= totalR) return null;
+
+  const normal = dist < 1e-8 ? new Vec3(0, 1, 0) : diff.scale(1 / dist);
+  const point = ptB.add(normal.scale(sb.radius));
+  return {
+    bodyA: a,
+    bodyB: b,
+    point,
+    normal,
+    penetration: totalR - dist,
+  };
+}
+
+/** Closest points between two line segments. */
+function closestPointsBetweenSegments(
+  p0: Vec3, p1: Vec3,
+  q0: Vec3, q1: Vec3
+): { ptA: Vec3; ptB: Vec3 } {
+  const d1 = p1.sub(p0);
+  const d2 = q1.sub(q0);
+  const r  = p0.sub(q0);
+
+  const a  = d1.dot(d1);
+  const e  = d2.dot(d2);
+  const f  = d2.dot(r);
+
+  let s: number, t: number;
+
+  if (a < 1e-10 && e < 1e-10) {
+    return { ptA: p0.clone(), ptB: q0.clone() };
+  }
+  if (a < 1e-10) {
+    s = 0;
+    t = Math.max(0, Math.min(1, f / e));
+  } else {
+    const c = d1.dot(r);
+    if (e < 1e-10) {
+      t = 0;
+      s = Math.max(0, Math.min(1, -c / a));
+    } else {
+      const b   = d1.dot(d2);
+      const denom = a * e - b * b;
+      s = denom > 1e-10 ? Math.max(0, Math.min(1, (b * f - c * e) / denom)) : 0;
+      t = (b * s + f) / e;
+      if (t < 0) { t = 0; s = Math.max(0, Math.min(1, -c / a)); }
+      else if (t > 1) { t = 1; s = Math.max(0, Math.min(1, (b - c) / a)); }
+    }
+  }
+  return {
+    ptA: p0.add(d1.scale(s)),
+    ptB: q0.add(d2.scale(t)),
+  };
+}
+
+// ── Capsule vs Plane ──────────────────────────────────────────────────────────
+
+function capsuleVsPlane(body: RigidBody, shape: CapsuleShape): Contact[] {
+  const contacts: Contact[] = [];
+  const axis = body.orientation.rotateVector(new Vec3(0, 0, -1));
+  const tip0 = body.position.add(axis.scale(-(shape.halfHeight)));
+  const tip1 = body.position.add(axis.scale(  shape.halfHeight));
+
+  for (const tipCentre of [tip0, tip1]) {
+    const pen = shape.radius - (tipCentre.y - GROUND_Y);
+    if (pen > 0) {
+      contacts.push({
+        bodyA: body,
+        bodyB: null,
+        point: new Vec3(tipCentre.x, GROUND_Y, tipCentre.z),
+        normal: new Vec3(0, 1, 0),
+        penetration: pen,
+      });
+    }
+  }
+  return contacts;
+}
+
+// ── Capsule vs Sphere ─────────────────────────────────────────────────────────
+
+function capsuleVsSphere(
+  cap: RigidBody, cs: CapsuleShape,
+  sph: RigidBody, sr: number
+): Contact | null {
+  const axis = cap.orientation.rotateVector(new Vec3(0, 0, -1));
+  const p0 = cap.position.sub(axis.scale(cs.halfHeight));
+  const p1 = cap.position.add(axis.scale(cs.halfHeight));
+
+  const closest = closestPointOnSegment(p0, p1, sph.position);
+  const diff    = sph.position.sub(closest);
+  const distSq  = diff.lengthSq();
+  const totalR  = cs.radius + sr;
+  if (distSq >= totalR * totalR) return null;
+
+  const dist   = Math.sqrt(distSq);
+  const normal = dist < 1e-8 ? new Vec3(0, 1, 0) : diff.scale(1 / dist);
+  return {
+    bodyA: sph,
+    bodyB: cap,
+    point: closest,
+    normal,
+    penetration: totalR - dist,
+  };
+}
+
 export function detectCollisions(bodies: RigidBody[]): Contact[] {
   const contacts: Contact[] = [];
 
+  // Ground plane contacts
   for (const body of bodies) {
     const shape = body.shape;
     if (shape.type === ShapeType.Sphere) {
@@ -145,6 +312,8 @@ export function detectCollisions(bodies: RigidBody[]): Contact[] {
       contacts.push(...boxVsPlane(body, shape.halfExtents));
     } else if (shape.type === ShapeType.Cylinder) {
       contacts.push(...cylinderVsPlane(body, shape));
+    } else if (shape.type === ShapeType.Capsule) {
+      contacts.push(...capsuleVsPlane(body, shape));
     }
   }
 
@@ -159,11 +328,30 @@ export function detectCollisions(bodies: RigidBody[]): Contact[] {
       if (sa.type === ShapeType.Sphere && sb.type === ShapeType.Sphere) {
         const c = sphereVsSphere(a, sa.radius, b, sb.radius);
         if (c) contacts.push(c);
+
       } else if (sa.type === ShapeType.Box && sb.type === ShapeType.Sphere) {
         const c = boxVsSphere(a, sa.halfExtents, b, sb.radius);
         if (c) contacts.push(c);
       } else if (sa.type === ShapeType.Sphere && sb.type === ShapeType.Box) {
         const c = boxVsSphere(b, sb.halfExtents, a, sa.radius);
+        if (c) contacts.push(c);
+
+      } else if (sa.type === ShapeType.Cylinder && sb.type === ShapeType.Sphere) {
+        const c = cylinderVsSphere(a, sa, b, sb.radius);
+        if (c) contacts.push(c);
+      } else if (sa.type === ShapeType.Sphere && sb.type === ShapeType.Cylinder) {
+        const c = cylinderVsSphere(b, sb, a, sa.radius);
+        if (c) contacts.push(c);
+
+      } else if (sa.type === ShapeType.Cylinder && sb.type === ShapeType.Cylinder) {
+        const c = cylinderVsCylinder(a, sa, b, sb);
+        if (c) contacts.push(c);
+
+      } else if (sa.type === ShapeType.Capsule && sb.type === ShapeType.Sphere) {
+        const c = capsuleVsSphere(a, sa, b, sb.radius);
+        if (c) contacts.push(c);
+      } else if (sa.type === ShapeType.Sphere && sb.type === ShapeType.Capsule) {
+        const c = capsuleVsSphere(b, sb, a, sa.radius);
         if (c) contacts.push(c);
       }
     }

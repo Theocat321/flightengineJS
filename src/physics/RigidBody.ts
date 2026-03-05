@@ -18,12 +18,21 @@ export interface GuidanceModule {
   update(body: RigidBody, dt: number): void;
 }
 
+export interface ThrustCurve {
+  /** Times in seconds from ignition */
+  times: number[];
+  /** Thrust in Newtons at each time point */
+  thrusts: number[];
+}
+
 export interface AeroProperties {
   wingArea: number;
   cd: number;        // drag coefficient
   cl0: number;       // lift at zero AoA
   clSlope: number;   // lift slope (per radian)
   thrustMagnitude: number;
+  /** Optional burn profile; overrides thrustMagnitude when present */
+  thrustCurve?: ThrustCurve;
 }
 
 export class RigidBody {
@@ -64,6 +73,18 @@ export class RigidBody {
   attachedSurfaces: AttachedSurface[] = [];
   guidanceModule: GuidanceModule | null = null;
 
+  // Thrust state
+  /** Seconds elapsed since ignition; used to sample thrustCurve */
+  thrustAge: number = 0;
+  /** Whether thrust is currently active (false by default; set to true to ignite) */
+  thrustEnabled: boolean = false;
+
+  // Sleep system
+  sleeping: boolean = false;
+  sleepThreshold: number = 0.05;
+  /** @internal */
+  _sleepTimer: number = 0;
+
   constructor(shape: Shape, mass: number, aero?: Partial<AeroProperties>) {
     this.id = nextId++;
     this.mass = mass;
@@ -91,6 +112,7 @@ export class RigidBody {
       cl0: aero?.cl0 ?? 0,
       clSlope: aero?.clSlope ?? 0,
       thrustMagnitude: aero?.thrustMagnitude ?? 0,
+      thrustCurve: aero?.thrustCurve,
     };
 
     this.restitution = 0.3;
@@ -150,5 +172,12 @@ export class RigidBody {
   savePreviousState(): void {
     this.previousPosition.copyFrom(this.position);
     this.previousOrientation = this.orientation.clone();
+  }
+
+  wake(): void {
+    if (this.sleeping) {
+      this.sleeping = false;
+      this._sleepTimer = 0;
+    }
   }
 }

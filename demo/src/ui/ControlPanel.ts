@@ -54,8 +54,7 @@ export class ControlPanel {
 
       <div class="panel-section">
         <h2>World Settings</h2>
-        ${this._sliderHTML('gravity', 'Gravity', 0, 30, this.sim.world.gravity, 0.5)}
-        ${this._sliderHTML('rho', 'Air Density', 0, 3, this.sim.world.rho, 0.05)}
+        ${this._sliderHTML('gravity', 'Gravity (m/s²)', 0, 30, -this.sim.world.gravity.y, 0.5)}
       </div>
 
       <div class="panel-section">
@@ -156,8 +155,7 @@ export class ControlPanel {
         onChange(v);
       });
     };
-    makeSlider('gravity', v => { this.sim.world.gravity = v; });
-    makeSlider('rho',     v => { this.sim.world.rho = v; });
+    makeSlider('gravity', v => { this.sim.world.gravity.y = -v; });
   }
 
   private _wireView(): void {

@@ -80,11 +80,15 @@ export class BodyRenderer {
 
     if (shape.type === ShapeType.Cylinder) {
       obj = createMissileObject(shape.radius, shape.height, color);
+    } else if (shape.type === ShapeType.Capsule) {
+      // Represent capsule as a cylinder with sphere ends (approximate)
+      obj = createMissileObject(shape.radius, shape.halfHeight * 2 + shape.radius * 2, color);
     } else {
       let geo: THREE.BufferGeometry;
       if (shape.type === ShapeType.Sphere) {
         geo = new THREE.SphereGeometry(shape.radius, 16, 12);
       } else {
+        // Box
         const { x, y, z } = shape.halfExtents;
         geo = new THREE.BoxGeometry(x * 2, y * 2, z * 2);
       }
