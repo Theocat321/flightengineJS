@@ -1,6 +1,5 @@
 import * as THREE from 'three';
-import { RigidBody } from '../physics/RigidBody.js';
-import { PhysicsWorld } from '../physics/PhysicsWorld.js';
+import { RigidBody, PhysicsWorld } from 'flight-engine-js';
 
 interface BodyArrows {
   velocity: THREE.ArrowHelper;

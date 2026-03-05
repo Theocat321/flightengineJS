@@ -1,8 +1,5 @@
 import * as THREE from 'three';
-import { RigidBody } from '../physics/RigidBody.js';
-import { ShapeType } from '../physics/shapes.js';
-import { Vec3 } from '../math/Vec3.js';
-import { Quat } from '../math/Quat.js';
+import { RigidBody, ShapeType, Vec3, Quat } from 'flight-engine-js';
 
 const PALETTE = [
   0x4a9eff, 0xff6b4a, 0x4aff8a, 0xffe14a,

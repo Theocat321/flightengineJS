@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-import { Vec3 } from '../math/Vec3.js';
+import { Vec3 } from 'flight-engine-js';
 
 export class SceneManager {
   scene: THREE.Scene;
