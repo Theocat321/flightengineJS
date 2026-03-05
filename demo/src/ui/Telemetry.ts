@@ -1,4 +1,4 @@
-import { RigidBody } from '../physics/RigidBody.js';
+import { RigidBody } from 'flight-engine-js';
 
 export class Telemetry {
   private container: HTMLElement;
