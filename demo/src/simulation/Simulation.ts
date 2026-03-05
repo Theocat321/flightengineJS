@@ -1,11 +1,9 @@
-import { PhysicsWorld } from '../physics/PhysicsWorld.js';
-import { RigidBody } from '../physics/RigidBody.js';
+import { PhysicsWorld, RigidBody, Vec3 } from 'flight-engine-js';
 import { SceneManager } from '../renderer/SceneManager.js';
 import { BodyRenderer } from '../renderer/BodyRenderer.js';
 import { DebugRenderer } from '../renderer/DebugRenderer.js';
 import { InputManager } from './InputManager.js';
 import { spawnPreset, PresetName } from './Presets.js';
-import { Vec3 } from '../math/Vec3.js';
 
 const CONTROL_TORQUE = 15;
 const MAX_DT = 0.1;

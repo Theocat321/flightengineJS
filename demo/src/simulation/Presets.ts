@@ -1,7 +1,4 @@
-import { RigidBody } from '../physics/RigidBody.js';
-import { ShapeType } from '../physics/shapes.js';
-import { Vec3 } from '../math/Vec3.js';
-import { Quat } from '../math/Quat.js';
+import { RigidBody, ShapeType, Vec3, Quat } from 'flight-engine-js';
 
 export type PresetName = 'Glider' | 'Rocket' | 'Ball' | 'Box';
 
