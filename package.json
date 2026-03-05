@@ -1,18 +1,32 @@
 {
-  "name": "flightengine-js",
+  "name": "flight-engine-js",
   "version": "0.1.0",
-  "private": true,
+  "description": "Aerodynamic rigid-body physics engine for the browser and Node.js",
   "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "files": ["dist"],
   "scripts": {
-    "dev": "vite",
-    "build": "tsc && vite build",
-    "preview": "vite preview"
+    "build": "tsup",
+    "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p demo/tsconfig.json",
+    "demo": "vite demo",
+    "demo:build": "vite build demo"
   },
-  "dependencies": {
-    "three": "^0.170.0"
-  },
+  "keywords": ["physics", "aerodynamics", "rigid-body", "simulation"],
+  "license": "MIT",
+  "dependencies": {},
   "devDependencies": {
     "@types/three": "^0.170.0",
+    "three": "^0.170.0",
+    "tsup": "^8.0.0",
     "typescript": "^5.7.0",
     "vite": "^6.0.0"
   }
